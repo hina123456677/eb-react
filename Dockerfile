@@ -1,21 +1,17 @@
-# Use Node.js version 20 on Alpine Linux (small, lightweight image)
 FROM node:20-alpine
-
-
-# Set the Working Directory
 WORKDIR /app
-
-# Copy only package files first
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
-
-# Copy the rest of the source code
 COPY . .
-
-# Build
+CMD ["npm", "start"]
+# Build stage
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
 RUN npm run build
-
-# Start
-CMD ["npm", "run", "start"]
+# Production stage
+FROM nginx:stable-alpine
+COPY --from=build /app/build /usr/share/nginx/html
+CMD ["nginx", "-g", "daemon off;"]
