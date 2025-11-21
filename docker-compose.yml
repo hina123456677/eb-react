@@ -3,9 +3,7 @@ version: "3.9"
 services:
   react-app:
     container_name: react_app
-    image: nginx:alpine           # Nginx from Docker Hub
+    image: react-boilerplate:latest   # <-- your image
     ports:
-      - "80:80"                   # host port 80 → container port 80
-    volumes:
-      - ./build:/usr/share/nginx/html:ro  # mount local build folder
+      - "80:80"                       # serve on port 80
     restart: always
