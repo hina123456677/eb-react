@@ -1,11 +1,7 @@
-version: "3.9"  # optional, can be omitted since Docker ignores it now
-
 services:
   react-app:
     container_name: react_app
-    build:
-      context: .      # assumes Dockerfile is in project root
-      dockerfile: Dockerfile
+    build: .              
     ports:
-      - "3000:80"     # map container port 80 (nginx) to localhost:3000
+      - "3000:80"         
     restart: always
