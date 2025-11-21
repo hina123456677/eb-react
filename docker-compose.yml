@@ -1,7 +1,9 @@
 services:
   react-app:
     container_name: react_app
-    image: react-app-prod:latest
+    image: nginx:alpine           # public image from Docker Hub
     ports:
       - "80:80"
+    volumes:
+      - ./build:/usr/share/nginx/html   # mount local build folder
     restart: always
