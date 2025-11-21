@@ -1,9 +1,9 @@
 # Stage 1: Build frontend
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY client/package*.json ./
+COPY client/package*.json ./      
 RUN npm install
-COPY client ./
+COPY client ./                    
 RUN npm run build
 
 # Stage 2: Serve frontend with nginx
