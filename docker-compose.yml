@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  node-service:
+    build:
+      context: ./node-boilerplate
+    container_name: node_service
+    ports:
+      - "4000:4000"
+    restart: always
+
+  next-service:
+    build:
+      context: ./next-boilerplate
+    container_name: next_service
+    ports:
+      - "3002:3000"
+    restart: always
+
+  react-service:
+    build:
+      context: ./react-boilerplate
+    container_name: react_service
+    ports:
+      - "8080:80"   # React build runs on nginx port 80
+    restart: always
+
+  nest-service:
+    build:
+      context: ./nestjs-boilerplate
+    container_name: nest_service
+    ports:
+      - "3000:3000"
+    restart: always
