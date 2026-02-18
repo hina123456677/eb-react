@@ -44,10 +44,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 7️⃣ Create unique S3 bucket name
+      # 7️⃣ Create unique S3 bucket name (valid)
       - name: Set unique S3 bucket
         run: |
-          export S3_BUCKET="react-app-${{ github.repository }}-${{ github.run_id }}"
+          export S3_BUCKET="react-app-${{ github.repository_owner }}-${{ github.run_id }}"
           echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_ENV
 
       # 8️⃣ Create the S3 bucket (ignore errors)
@@ -90,7 +90,14 @@ jobs:
             echo "EB Environment already exists"
           fi
 
-      # 1️⃣3️⃣ Deploy to Elastic Beanstalk
+      # 1️⃣3️⃣ Wait for EB Environment to be ready
+      - name: Wait for EB Environment
+        run: |
+          aws elasticbeanstalk wait environment-exists \
+            --environment-names $EB_ENV_NAME
+          echo "EB Environment is ready"
+
+      # 1️⃣4️⃣ Deploy to Elastic Beanstalk
       - name: Deploy to Elastic Beanstalk
         run: |
           aws elasticbeanstalk update-environment \
