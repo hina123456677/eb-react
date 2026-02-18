@@ -1,0 +1,67 @@
+name: DEV Build Test Deploy to Elastic Beanstalk
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  dev-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1️⃣ Checkout code
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2️⃣ Setup Node.js 20
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    # 3️⃣ Install dependencies
+    - name: Install dependencies
+      run: npm install
+
+    # 4️⃣ Run tests (if any)
+    - name: Run tests
+      run: npm test --if-present
+
+    # 5️⃣ Build frontend
+    - name: Build application
+      run: npm run build
+
+    # 6️⃣ Create zip package
+    - name: Package application
+      run: |
+        zip -r app.zip . \
+        -x "*.git*" "node_modules/*"
+
+    # 7️⃣ Configure AWS credentials (from GitHub Secrets)
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    # 8️⃣ Upload ZIP to S3 (CRITICAL STEP)
+    - name: Upload app.zip to S3
+      run: |
+        aws s3 cp app.zip s3://ps-frontend-dev-bucket/app.zip
+
+    # 9️⃣ Create Elastic Beanstalk application version
+    - name: Create EB application version
+      run: |
+        aws elasticbeanstalk create-application-version \
+          --application-name ps-frontend-dev \
+          --version-label dev-${{ github.run_id }} \
+          --source-bundle S3Bucket=ps-frontend-dev-bucket,S3Key=app.zip
+
+    # 🔟 Deploy version to EB environment
+    - name: Deploy to Elastic Beanstalk
+      run: |
+        aws elasticbeanstalk update-environment \
+          --environment-name Ps-frontend-dev-env \
+          --version-label dev-${{ github.run_id }}
