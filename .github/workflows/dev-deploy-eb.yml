@@ -2,7 +2,7 @@ name: React App CI/CD to Elastic Beanstalk
 
 on:
   push:
-    branches: [develop]   # triggers on push to develop branch
+    branches: [develop]   # runs when you push to develop
 
 jobs:
   build-deploy:
@@ -44,26 +44,27 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 7️⃣ Create unique S3 bucket
+      # 7️⃣ Create unique S3 bucket name
       - name: Set unique S3 bucket
         run: |
           export S3_BUCKET="react-app-${{ github.repository }}-${{ github.run_id }}"
           echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_ENV
 
-      - name: Create S3 bucket (ignore errors)
+      # 8️⃣ Create the S3 bucket (ignore errors)
+      - name: Create S3 bucket
         run: aws s3 mb "s3://$S3_BUCKET" || echo "Bucket exists or cannot create"
 
-      # 8️⃣ Upload ZIP to S3
+      # 9️⃣ Upload ZIP to S3
       - name: Upload ZIP to S3
         run: aws s3 cp react-app.zip s3://$S3_BUCKET/react-app.zip
 
-      # 9️⃣ Ensure EB Application exists
+      # 🔟 Ensure Elastic Beanstalk Application exists
       - name: Ensure EB Application exists
         run: |
           aws elasticbeanstalk describe-applications --application-names $EB_APP_NAME || \
           aws elasticbeanstalk create-application --application-name $EB_APP_NAME
 
-      # 🔟 Ensure EB Environment exists
+      # 1️⃣1️⃣ Ensure Elastic Beanstalk Environment exists
       - name: Ensure EB Environment exists
         run: |
           aws elasticbeanstalk describe-environments \
@@ -72,10 +73,10 @@ jobs:
           aws elasticbeanstalk create-environment \
             --application-name $EB_APP_NAME \
             --environment-name $EB_ENV_NAME \
-            --solution-stack-name "64bit Amazon Linux 2 v5.5.7 running Node.js 20" \
+            --solution-stack-name "64bit Amazon Linux 2023 v6.7.4 running Node.js 24" \
             --version-label initial
 
-      # 1️⃣1️⃣ Create new EB Application Version
+      # 1️⃣2️⃣ Create new EB Application Version
       - name: Create new EB Application Version
         run: |
           aws elasticbeanstalk create-application-version \
@@ -83,7 +84,7 @@ jobs:
             --version-label $GITHUB_SHA \
             --source-bundle S3Bucket=$S3_BUCKET,S3Key=react-app.zip
 
-      # 1️⃣2️⃣ Deploy to Elastic Beanstalk
+      # 1️⃣3️⃣ Deploy to Elastic Beanstalk
       - name: Deploy to Elastic Beanstalk
         run: |
           aws elasticbeanstalk update-environment \
