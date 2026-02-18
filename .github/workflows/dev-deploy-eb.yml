@@ -2,7 +2,7 @@ name: React App CI/CD to Elastic Beanstalk
 
 on:
   push:
-    branches: [develop]   # runs when you push to develop
+    branches: [develop]   # runs on push to develop
 
 jobs:
   build-deploy:
@@ -61,20 +61,26 @@ jobs:
       # 🔟 Ensure Elastic Beanstalk Application exists
       - name: Ensure EB Application exists
         run: |
-          aws elasticbeanstalk describe-applications --application-names $EB_APP_NAME || \
-          aws elasticbeanstalk create-application --application-name $EB_APP_NAME
+          if ! aws elasticbeanstalk describe-applications --application-names $EB_APP_NAME | grep $EB_APP_NAME; then
+            aws elasticbeanstalk create-application --application-name $EB_APP_NAME
+            echo "EB Application created"
+          else
+            echo "EB Application already exists"
+          fi
 
       # 1️⃣1️⃣ Ensure Elastic Beanstalk Environment exists
       - name: Ensure EB Environment exists
         run: |
-          aws elasticbeanstalk describe-environments \
-            --application-name $EB_APP_NAME \
-            --environment-names $EB_ENV_NAME | grep $EB_ENV_NAME || \
-          aws elasticbeanstalk create-environment \
-            --application-name $EB_APP_NAME \
-            --environment-name $EB_ENV_NAME \
-            --solution-stack-name "64bit Amazon Linux 2023 v6.7.4 running Node.js 24" \
-            --version-label initial
+          if ! aws elasticbeanstalk describe-environments --application-name $EB_APP_NAME --environment-names $EB_ENV_NAME | grep $EB_ENV_NAME; then
+            aws elasticbeanstalk create-environment \
+              --application-name $EB_APP_NAME \
+              --environment-name $EB_ENV_NAME \
+              --solution-stack-name "64bit Amazon Linux 2023 v6.7.4 running Node.js 24" \
+              --version-label initial
+            echo "EB Environment created"
+          else
+            echo "EB Environment already exists"
+          fi
 
       # 1️⃣2️⃣ Create new EB Application Version
       - name: Create new EB Application Version
@@ -90,3 +96,4 @@ jobs:
           aws elasticbeanstalk update-environment \
             --environment-name $EB_ENV_NAME \
             --version-label $GITHUB_SHA
+
