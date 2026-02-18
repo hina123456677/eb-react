@@ -1,105 +1,67 @@
-name: React App CI/CD to Elastic Beanstalk
+name: DEV Build Test Deploy to Elastic Beanstalk
 
 on:
   push:
-    branches: [develop]   # runs on push to develop
+    branches:
+      - develop
 
 jobs:
-  build-deploy:
+  dev-deploy:
     runs-on: ubuntu-latest
 
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      EB_APP_NAME: react-app
-      EB_ENV_NAME: react-app-env
-
     steps:
-      # 1️⃣ Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v3
+    # 1️⃣ Checkout code
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      # 2️⃣ Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
+    # 2️⃣ Setup Node.js 20
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
 
-      # 3️⃣ Install dependencies
-      - name: Install dependencies
-        run: npm install
+    # 3️⃣ Install dependencies
+    - name: Install dependencies
+      run: npm install
 
-      # 4️⃣ Build React app
-      - name: Build React app
-        run: npm run build
+    # 4️⃣ Run tests (if any)
+    - name: Run tests
+      run: npm test --if-present
 
-      # 5️⃣ Zip build folder
-      - name: Zip build folder
-        run: zip -r react-app.zip ./build
+    # 5️⃣ Build frontend
+    - name: Build application
+      run: npm run build
 
-      # 6️⃣ Configure AWS credentials
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+    # 6️⃣ Create zip package
+    - name: Package application
+      run: |
+        zip -r app.zip . \
+        -x "*.git*" "node_modules/*"
 
-      # 7️⃣ Create unique S3 bucket name (valid)
-      - name: Set unique S3 bucket
-        run: |
-          export S3_BUCKET="react-app-${{ github.repository_owner }}-${{ github.run_id }}"
-          echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_ENV
+    # 7️⃣ Configure AWS credentials (from GitHub Secrets)
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
 
-      # 8️⃣ Create the S3 bucket (ignore errors)
-      - name: Create S3 bucket
-        run: aws s3 mb "s3://$S3_BUCKET" || echo "Bucket exists or cannot create"
+    # 8️⃣ Upload ZIP to S3 (CRITICAL STEP)
+    - name: Upload app.zip to S3
+      run: |
+        aws s3 cp app.zip s3://ps-frontend-dev-bucket/app.zip
 
-      # 9️⃣ Upload ZIP to S3
-      - name: Upload ZIP to S3
-        run: aws s3 cp react-app.zip s3://$S3_BUCKET/react-app.zip
+    # 9️⃣ Create Elastic Beanstalk application version
+    - name: Create EB application version
+      run: |
+        aws elasticbeanstalk create-application-version \
+          --application-name ps-frontend-dev \
+          --version-label dev-${{ github.run_id }} \
+          --source-bundle S3Bucket=ps-frontend-dev-bucket,S3Key=app.zip
 
-      # 🔟 Ensure Elastic Beanstalk Application exists
-      - name: Ensure EB Application exists
-        run: |
-          if ! aws elasticbeanstalk describe-applications --application-names $EB_APP_NAME | grep $EB_APP_NAME; then
-            aws elasticbeanstalk create-application --application-name $EB_APP_NAME
-            echo "EB Application created"
-          else
-            echo "EB Application already exists"
-          fi
-
-      # 1️⃣1️⃣ Create new EB Application Version
-      - name: Create new EB Application Version
-        run: |
-          aws elasticbeanstalk create-application-version \
-            --application-name $EB_APP_NAME \
-            --version-label $GITHUB_SHA \
-            --source-bundle S3Bucket=$S3_BUCKET,S3Key=react-app.zip
-
-      # 1️⃣2️⃣ Ensure EB Environment exists (or create it)
-      - name: Ensure EB Environment exists
-        run: |
-          if ! aws elasticbeanstalk describe-environments --application-name $EB_APP_NAME --environment-names $EB_ENV_NAME | grep $EB_ENV_NAME; then
-            aws elasticbeanstalk create-environment \
-              --application-name $EB_APP_NAME \
-              --environment-name $EB_ENV_NAME \
-              --solution-stack-name "64bit Amazon Linux 2023 v6.7.4 running Node.js 24" \
-              --version-label $GITHUB_SHA
-            echo "EB Environment created"
-          else
-            echo "EB Environment already exists"
-          fi
-
-      # 1️⃣3️⃣ Wait for EB Environment to be ready
-      - name: Wait for EB Environment
-        run: |
-          aws elasticbeanstalk wait environment-exists \
-            --environment-names $EB_ENV_NAME
-          echo "EB Environment is ready"
-
-      # 1️⃣4️⃣ Deploy to Elastic Beanstalk
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk update-environment \
-            --environment-name $EB_ENV_NAME \
-            --version-label $GITHUB_SHA
+    # 🔟 Deploy version to EB environment
+    - name: Deploy to Elastic Beanstalk
+      run: |
+        aws elasticbeanstalk update-environment \
+          --environment-name Ps-frontend-dev-env-1 \
+          --version-label dev-${{ github.run_id }}
