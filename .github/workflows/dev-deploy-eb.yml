@@ -2,7 +2,7 @@ name: React App CI/CD to Elastic Beanstalk
 
 on:
   push:
-    branches: develop   # triggers on push to main
+    branches: [develop]   # triggers on push to develop branch
 
 jobs:
   build-deploy:
@@ -36,17 +36,15 @@ jobs:
       - name: Zip build folder
         run: zip -r react-app.zip ./build
 
-      # 6️⃣ Configure AWS CLI with secrets
-      - name: Configure AWS CLI
-        run: |
-          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-          aws configure set default.region $AWS_REGION
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # 6️⃣ Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # 7️⃣ Create unique S3 bucket (ignore errors if bucket exists)
+      # 7️⃣ Create unique S3 bucket
       - name: Set unique S3 bucket
         run: |
           export S3_BUCKET="react-app-${{ github.repository }}-${{ github.run_id }}"
@@ -85,7 +83,7 @@ jobs:
             --version-label $GITHUB_SHA \
             --source-bundle S3Bucket=$S3_BUCKET,S3Key=react-app.zip
 
-      # 1️⃣2️⃣ Deploy to EB
+      # 1️⃣2️⃣ Deploy to Elastic Beanstalk
       - name: Deploy to Elastic Beanstalk
         run: |
           aws elasticbeanstalk update-environment \
